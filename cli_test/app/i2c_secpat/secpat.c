@@ -53,7 +53,7 @@ void secpat_i2c_receive(void *pvParameters) {
 	for (uint8_t i = 0; i < 128; ++i) {
 		clean_queue[i] = i;
 	}
-	send_to_outbound_queue(clean_queue, 48);
+	//send_to_outbound_queue(clean_queue, 48);
 	CLI_printf("Queue cleaned, reading input...\n");
 
 	for (;;) {
@@ -101,6 +101,8 @@ void secpat_i2c_receive(void *pvParameters) {
 							tx_packet.NAD, tx_packet.PCB, tx_packet.LEN,
 							tx_packet.CRC_B1, tx_packet.CRC_B2);
 					bytes_read = 0;
+					memset(&tx_packet, 0, sizeof(tx_packet));
+					memset(&rx_packet, 0, sizeof(rx_packet));
 
 				} else {
 					rx_packet.APDU_message[bytes_read - T1_HEADER_LEN] = data;

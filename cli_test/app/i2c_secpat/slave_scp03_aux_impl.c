@@ -209,6 +209,7 @@ void calculate_CMAC(uint8_t *key, size_t keyLen, uint8_t *inData,
 	mbedtls_cipher_cmac_update(&c_ctx, inData, inDataLen);
 
 	mbedtls_cipher_cmac_finish(&c_ctx, outSignature);
+	mbedtls_cipher_free(&c_ctx);
 }
 
 void set_derivation_data(uint8_t *ddA, uint16_t *pDdALen, uint8_t ddConstant,
