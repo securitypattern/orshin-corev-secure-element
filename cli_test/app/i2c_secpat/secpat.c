@@ -15,6 +15,7 @@
 #include "libs/utils/include/dbg_uart.h"
 #include "hal/include/hal_apb_i2cs_reg_defs.h"
 #include "hal/include/hal_apb_i2cs.h"
+#include "hal/include/hal_gpio.h"
 /* Priorities used by the tasks. */
 #define main_TASK_PRIORITY (tskIDLE_PRIORITY + 2)
 #define QUEUE_FULL 0x7
@@ -56,6 +57,16 @@ void secpat_i2c_receive(void *pvParameters) {
 	//send_to_outbound_queue(clean_queue, 48);
 	CLI_printf("Queue cleaned, reading input...\n");
 
+	hal_set_gpio_mode(CHANNEL_INIT_GPIO, 1);	//Mode : 1 = Output, 0 = Input
+	hal_clr_gpio(CHANNEL_INIT_GPIO);
+
+	hal_set_gpio_mode(COMMAND_DECRYPT_GPIO, 1);	//Mode : 1 = Output, 0 = Input
+	hal_clr_gpio(COMMAND_DECRYPT_GPIO);
+
+	hal_set_gpio_mode(RESP_ENCRYPT_GPIO, 1);	//Mode : 1 = Output, 0 = Input
+	hal_clr_gpio(RESP_ENCRYPT_GPIO);
+
+
 	for (;;) {
 
 		if (hal_get_i2cs_fifo_i2c_apb_read_flags() != 0) {
@@ -87,19 +98,19 @@ void secpat_i2c_receive(void *pvParameters) {
 					rx_packet.CRC_B2 = data;
 					//CLI_printf("CRC_B2: 0x%x\n", data);
 					//We're done!
-					CLI_printf("Parsing packet!\n");
+					//CLI_printf("Parsing packet!\n");
 
 					T1_construct_resp_packet_data();
-					CLI_printf("Constructed response packet data\n");
+					//CLI_printf("Constructed response packet data\n");
 
 					T1_generate_response(out_buffer);
-					CLI_printf("Generated response\n");
+					//CLI_printf("Generated response\n");
 
 					send_to_outbound_queue(out_buffer, tx_packet.LEN + 5);
-					CLI_printf(
-							"Response sent!\nNAD: 0x%x, PCB: 0x%x LEN: 0x%x CRC_B1: 0x%x, CRC_B2: 0x%x\n\n",
-							tx_packet.NAD, tx_packet.PCB, tx_packet.LEN,
-							tx_packet.CRC_B1, tx_packet.CRC_B2);
+//					CLI_printf(
+//							"NAD: 0x%x, PCB: 0x%x LEN: %d CRC_B1: 0x%x, CRC_B2: 0x%x\n\n",
+//							tx_packet.NAD, tx_packet.PCB, tx_packet.LEN,
+//							tx_packet.CRC_B1, tx_packet.CRC_B2);
 					bytes_read = 0;
 					memset(&tx_packet, 0, sizeof(tx_packet));
 					memset(&rx_packet, 0, sizeof(rx_packet));

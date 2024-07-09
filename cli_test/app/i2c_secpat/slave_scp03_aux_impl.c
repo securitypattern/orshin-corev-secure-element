@@ -1,4 +1,6 @@
 #include "../include/slave_scp03_aux_def.h"
+#include "../include/slave_T1_def.h"
+#include "hal/include/hal_gpio.h"
 
 mbedtls_aes_context aes_enc;
 mbedtls_aes_context aes_dec;
@@ -263,8 +265,12 @@ void scp03aux_gen_session_key(session_context_t *scp03SessCtxt,
 				contextLen);
 		generate_session_key(staticKey, AES_KEY_LEN, ddA, ddALen,
 				scp03SessCtxt->S_ENC_key);
+
+		hal_toggle_gpio((uint8_t) CHANNEL_INIT_GPIO);
 		mbedtls_aes_setkey_enc(&aes_enc, scp03SessCtxt->S_ENC_key, 128);
 		mbedtls_aes_setkey_dec(&aes_dec, scp03SessCtxt->S_ENC_key, 128);
+		hal_toggle_gpio((uint8_t) CHANNEL_INIT_GPIO);
+
 	} else if (sessionKey == S_MAC) {
 		set_derivation_data(ddA, &ddALen, DATA_DERIVATION_SMAC,
 				DATA_DERIVATION_L_128BIT, DATA_DERIVATION_KDF_CTR, context,
