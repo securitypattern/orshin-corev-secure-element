@@ -4,8 +4,8 @@
 #include "slave_scp03APDU_def.h"
 
 #define CHANNEL_INIT_GPIO 0
-#define COMMAND_DECRYPT_GPIO 1
-#define RESP_ENCRYPT_GPIO 2
+#define COMMAND_DECRYPT_AUTH_GPIO 1
+#define RESP_ENCRYPT_MAC_GPIO 2
 
 #define T1_HEADER_LEN 3
 

@@ -60,11 +60,11 @@ void secpat_i2c_receive(void *pvParameters) {
 	hal_set_gpio_mode(CHANNEL_INIT_GPIO, 1);	//Mode : 1 = Output, 0 = Input
 	hal_clr_gpio(CHANNEL_INIT_GPIO);
 
-	hal_set_gpio_mode(COMMAND_DECRYPT_GPIO, 1);	//Mode : 1 = Output, 0 = Input
-	hal_clr_gpio(COMMAND_DECRYPT_GPIO);
+	hal_set_gpio_mode(COMMAND_DECRYPT_AUTH_GPIO, 1);	//Mode : 1 = Output, 0 = Input
+	hal_clr_gpio(COMMAND_DECRYPT_AUTH_GPIO);
 
-	hal_set_gpio_mode(RESP_ENCRYPT_GPIO, 1);	//Mode : 1 = Output, 0 = Input
-	hal_clr_gpio(RESP_ENCRYPT_GPIO);
+	hal_set_gpio_mode(RESP_ENCRYPT_MAC_GPIO, 1);	//Mode : 1 = Output, 0 = Input
+	hal_clr_gpio(RESP_ENCRYPT_MAC_GPIO);
 
 
 	for (;;) {

@@ -59,6 +59,7 @@ void scp03APDU_construct_resp_APDU_message(uint8_t *ptrAPDUCommand,
 		}
 	} else if (scp03_sess_ctxt.rx_APDU_command_type < NON_DEFINED_COMMAND) { /* Assuming that the first commands have been successfully processed, the session has been established. */
 		//CLI_printf("OTHER COMMAND\n");
+		hal_toggle_gpio((uint8_t) CHANNEL_INIT_GPIO);
 		prepare_response_APDU(ptrAPDUCommand, ptrAPDUResponse,
 				ptrAPDUResponseLen);
 	}
@@ -175,6 +176,9 @@ void prepare_response_APDU(uint8_t *ptrAPDUCommand, uint8_t *ptrAPDUResponse,
 	= scp03_sess_ctxt.rx_APDU_data_len - MAC_LEN;
 	bool_t isTrue_verify_MAC; /* Is the calculated MAC the same as the received MAC? */
 	//CLI_printf("Verify MAC BEGIN\n");
+
+	hal_toggle_gpio((uint8_t) COMMAND_DECRYPT_AUTH_GPIO);
+
 	scp03aux_verify_rec_APDU_MAC(&scp03_sess_ctxt, &isTrue_verify_MAC); /* Verify the received APDU MAC. */
 	//CLI_printf("Verify MAC END\n");
 
@@ -191,6 +195,7 @@ void prepare_response_APDU(uint8_t *ptrAPDUCommand, uint8_t *ptrAPDUResponse,
 					command_data_proper_len);
 		}
 		/*** END Check if received data is encrypted ***/
+		hal_toggle_gpio((uint8_t) COMMAND_DECRYPT_AUTH_GPIO);
 
 		switch (scp03_sess_ctxt.rx_APDU_command_type) {
 		case GET_VERSION:
@@ -223,12 +228,14 @@ void prepare_response_APDU(uint8_t *ptrAPDUCommand, uint8_t *ptrAPDUResponse,
 		SW1 = 0x90;
 		SW2 = 0x00;
 		/*** END Add the SW bytes. ***/
+		hal_toggle_gpio((uint8_t) RESP_ENCRYPT_MAC_GPIO);
 
 		scp03aux_apply_session_security_requirements_resp_APDU(&scp03_sess_ctxt,
 				ptrAPDUResponse, ptrAPDUResponseLen, response_data,
 				response_data_len, SW1, SW2); /* Apply the security requirements of the current SCP session. */
 
 		scp03aux_inc_command_counter(&scp03_sess_ctxt); /* Increment command counter. Careful that the session security requirements should be applied with the non-incremented command counter values! */
+		hal_toggle_gpio((uint8_t) RESP_ENCRYPT_MAC_GPIO);
 
 	} else { /* Command processing failed. */
 		response_data_len = 0; /* Set the response data length. */

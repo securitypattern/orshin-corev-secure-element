@@ -266,10 +266,8 @@ void scp03aux_gen_session_key(session_context_t *scp03SessCtxt,
 		generate_session_key(staticKey, AES_KEY_LEN, ddA, ddALen,
 				scp03SessCtxt->S_ENC_key);
 
-		hal_toggle_gpio((uint8_t) CHANNEL_INIT_GPIO);
 		mbedtls_aes_setkey_enc(&aes_enc, scp03SessCtxt->S_ENC_key, 128);
 		mbedtls_aes_setkey_dec(&aes_dec, scp03SessCtxt->S_ENC_key, 128);
-		hal_toggle_gpio((uint8_t) CHANNEL_INIT_GPIO);
 
 	} else if (sessionKey == S_MAC) {
 		set_derivation_data(ddA, &ddALen, DATA_DERIVATION_SMAC,
