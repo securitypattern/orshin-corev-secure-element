@@ -59,7 +59,6 @@ void scp03APDU_construct_resp_APDU_message(uint8_t *ptrAPDUCommand,
 		}
 	} else if (scp03_sess_ctxt.rx_APDU_command_type < NON_DEFINED_COMMAND) { /* Assuming that the first commands have been successfully processed, the session has been established. */
 		//CLI_printf("OTHER COMMAND\n");
-		hal_toggle_gpio((uint8_t) CHANNEL_INIT_GPIO);
 		prepare_response_APDU(ptrAPDUCommand, ptrAPDUResponse,
 				ptrAPDUResponseLen);
 	}
