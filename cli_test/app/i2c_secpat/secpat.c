@@ -58,15 +58,21 @@ void secpat_i2c_receive(void *pvParameters) {
 	CLI_printf("Queue cleaned, reading input...\n");
 
 	hal_set_gpio_mode(CHANNEL_INIT_GPIO, 1);	//Mode : 1 = Output, 0 = Input
-	hal_clr_gpio(CHANNEL_INIT_GPIO);
-
 	hal_set_gpio_mode(COMMAND_DECRYPT_AUTH_GPIO, 1);	//Mode : 1 = Output, 0 = Input
-	hal_clr_gpio(COMMAND_DECRYPT_AUTH_GPIO);
-
 	hal_set_gpio_mode(RESP_ENCRYPT_MAC_GPIO, 1);	//Mode : 1 = Output, 0 = Input
-	hal_clr_gpio(RESP_ENCRYPT_MAC_GPIO);
 
+	for(int c = 0; c < 10; ++c){
+		hal_set_gpio(CHANNEL_INIT_GPIO);
+		hal_set_gpio(COMMAND_DECRYPT_AUTH_GPIO);
+		hal_set_gpio(RESP_ENCRYPT_MAC_GPIO);
 
+		hal_clr_gpio(CHANNEL_INIT_GPIO);
+		hal_clr_gpio(COMMAND_DECRYPT_AUTH_GPIO);
+		hal_clr_gpio(RESP_ENCRYPT_MAC_GPIO);
+		vTaskDelay(500 * portTICK_PERIOD_MS);
+
+	}
+	
 	for (;;) {
 
 		if (hal_get_i2cs_fifo_i2c_apb_read_flags() != 0) {
