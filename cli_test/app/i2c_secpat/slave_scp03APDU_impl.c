@@ -7,6 +7,7 @@
  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #include "../include/slave_scp03APDU_def.h"
+#include "../include/slave_T1_def.h"
 
 session_context_t scp03_sess_ctxt; /* Session context data. */
 
@@ -43,13 +44,10 @@ void prepare_response_APDU(uint8_t *ptrAPDUCommand, uint8_t *ptrAPDUResponse,
 	uint8_t SW1, SW2; /* SW bytes of the response. */
 	uint16_t responseLen = 0; /* Length of the entire RAPDU to be sent to the master. */
 	bool_t isTrue_verify_MAC; /* Is the calculated MAC the same as the received MAC? */
-
-	//t3 = DWT->CYCCNT; /** TIME MEASUREMENT **/
-	//HAL_GPIO_WritePin(GPIOD, GPIO_PIN_1, GPIO_PIN_SET); /** TIME MEASUREMENT **/
+	
+	hal_toggle_gpio((uint8_t) COMMAND_DECRYPT_AUTH_GPIO);
 	scp03aux_command_dec(&scp03_sess_ctxt, commandBuf, &isTrue_verify_MAC);
-	//t4 = DWT->CYCCNT; /** TIME MEASUREMENT **/
-	//HAL_GPIO_WritePin(GPIOD, GPIO_PIN_1, GPIO_PIN_RESET); /** TIME MEASUREMENT **/
-	//diffr = t4 - t3; /** TIME MEASUREMENT **/
+	hal_toggle_gpio((uint8_t) COMMAND_DECRYPT_AUTH_GPIO);
 
 	if (isTrue_verify_MAC) { /* Command processing OK. */
 		switch (scp03_sess_ctxt.rx_APDU_command_type) {
@@ -67,12 +65,9 @@ void prepare_response_APDU(uint8_t *ptrAPDUCommand, uint8_t *ptrAPDUResponse,
 		responseBuf[responseLen++] = SW2;
 		/*** END Add the SW bytes. ***/
 
-		//t3 = DWT->CYCCNT; /** TIME MEASUREMENT **/
-		//HAL_GPIO_WritePin(GPIOD, GPIO_PIN_1, GPIO_PIN_SET); /** TIME MEASUREMENT **/
+		hal_toggle_gpio((uint8_t) RESP_ENCRYPT_MAC_GPIO);
 		scp03aux_response_enc(responseBuf);
-		//t4 = DWT->CYCCNT; /** TIME MEASUREMENT **/
-		//HAL_GPIO_WritePin(GPIOD, GPIO_PIN_1, GPIO_PIN_RESET); /** TIME MEASUREMENT **/
-		//diffr = t4 - t3; /** TIME MEASUREMENT **/
+		hal_toggle_gpio((uint8_t) RESP_ENCRYPT_MAC_GPIO);
 
 		responseLen = RAPDU_HEADER_LEN; /* RAPDU header length. */
 		responseLen += (((uint16_t) responseBuf[iLC1RAPDU]) << 8)
