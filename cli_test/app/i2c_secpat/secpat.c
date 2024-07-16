@@ -108,7 +108,7 @@ void secpat_i2c_receive(void *pvParameters) {
 
 					send_to_outbound_queue(out_buffer, tx_packet.LEN + 5);
 //					CLI_printf(
-//							"NAD: 0x%x, PCB: 0x%x LEN: %d CRC_B1: 0x%x, CRC_B2: 0x%x\n\n",
+//							"RESP Data:\nNAD: 0x%x, PCB: 0x%x LEN: %d CRC_B1: 0x%x, CRC_B2: 0x%x\n\n",
 //							tx_packet.NAD, tx_packet.PCB, tx_packet.LEN,
 //							tx_packet.CRC_B1, tx_packet.CRC_B2);
 					bytes_read = 0;

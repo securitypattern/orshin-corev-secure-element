@@ -1,300 +1,142 @@
-#include "../include/slave_scp03_aux_def.h"
-#include "../include/slave_T1_def.h"
-#include "hal/include/hal_gpio.h"
+/* Copyright (c) 2024 Joan Bushi
 
-mbedtls_aes_context aes_enc;
-mbedtls_aes_context aes_dec;
+ Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
-volatile unsigned long t1;
-volatile unsigned long t2;
-volatile unsigned long diff;
+ The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
-extern volatile unsigned long count_AES_calls;
-volatile unsigned long tot_AES_enc;
-volatile unsigned long tot_AES_dec;
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
-static void begin_num_AES_enc() {
-	count_AES_calls = 0;
-}
+#include "../include/slave_scp03APDU_def.h"
 
-static void end_num_AES_enc() {
-	tot_AES_enc = count_AES_calls;
-}
+session_state_t session_state = UNINITIATED;
 
-static void begin_num_AES_dec() {
-	count_AES_calls = 0;
-}
+uint8_t static_key[STATIC_KEY_LEN] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
+		0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
+uint8_t id_K[] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
+		0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
+uint8_t counter_K[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 };
+uint8_t nonceH[NONCE_LEN];
+uint8_t nonceSE[NONCE_LEN] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x0a, 0x0a, 0x0b,
+		0x03, 0x07, 0x0f, 0x01, 0x01, 0x01, 0xe, 0xd };
 
-static void end_num_AES_dec() {
-	tot_AES_dec = count_AES_calls;
-}
+Xoodyak_Instance instance;
 
-void scp03aux_verify_rec_APDU_MAC(session_context_t *scp03SessCtxt,
-		bool_t *isTrue_status) {
-	uint8_t in_Data[MAX_DATA_LEN]; /* Auxiliary variable, used for calculating the MAC of the received APDU message. */
-	uint8_t MAC_offset; /* Position of the first byte of the MAC within the received APDU message string. */
-	uint8_t calculated_MAC[MCV_LEN]; /* Calculated MAC value. */
+void scp03aux_command_dec(session_context_t *scp03SessCtxt,
+		uint8_t *decCommandBuf, uint8_t *isTrueVerifyMAC) {
+	uint8_t *commandBuf = scp03SessCtxt->rx_APDU_message; /* The encrypted and authenticated CAPDU. */
+	uint16_t payload_len = scp03SessCtxt->rx_APDU_data_len; /* Payload length of the encrypted and authenticated CAPDU. */
+	uint16_t dec_payload_len; /* Payload length of the decrypted CAPDU. */
+	uint8_t tag_verif_res = -1; /* Result of Xoodyak tag verification. */
+	uint8_t tag[16];
 
-	memcpy(in_Data, scp03SessCtxt->mac_chaining_value, MCV_LEN);
-	MAC_offset = scp03SessCtxt->rx_APDU_header_len
-			+ scp03SessCtxt->rx_APDU_data_len - MAC_LEN;
-	memcpy(&in_Data[MCV_LEN], scp03SessCtxt->rx_APDU_message, MAC_offset);
-	//CLI_printf("calculate_CMAC BEGIN\n");
-	calculate_CMAC(scp03SessCtxt->S_MAC_key, AES_KEY_LEN, in_Data,
-			MCV_LEN + MAC_offset, calculated_MAC);
-	//CLI_printf("calculate_CMAC END\n");
+	if (session_state == UNINITIATED) {
+		memcpy(nonceH, commandBuf + CAPDU_HEADER_LEN + payload_len - NONCE_LEN,
+		NONCE_LEN); /* Extract nonceH from the CAPDU. */
 
-	if (memcmp(calculated_MAC, &scp03SessCtxt->rx_APDU_message[MAC_offset],
-			MAC_LEN) != 0) {
-		*isTrue_status = FALSE;
-	} else {
-		*isTrue_status = TRUE;
-		memcpy(scp03SessCtxt->mac_chaining_value, calculated_MAC, MCV_LEN); /* Update the MAC chaining value. */
-	}
-}
-
-void scp03aux_verify_host_cryptogram(session_context_t *scp03SessCtxt,
-		bool_t *isTrue_status) {
-	uint8_t in_Data[MAX_DATA_LEN];
-	uint16_t in_Data_len;
-	uint8_t calculated_host_cryptogram[HOST_CRYPTOGRAM_LEN];
-
-	/* Step 1: Prepare the necessary data to derive the host cryptogram. */
-	memcpy(in_Data, scp03SessCtxt->host_challenge, HOST_CHALLENGE_LEN);
-	memcpy(&in_Data[HOST_CHALLENGE_LEN], scp03SessCtxt->card_challenge,
-			CARD_CHALLENGE_LEN);
-	in_Data_len = DDA_BUFFER_LEN;
-	set_derivation_data(&in_Data[HOST_CHALLENGE_LEN + CARD_CHALLENGE_LEN],
-			&in_Data_len, DATA_HOST_CRYPTOGRAM, DATA_DERIVATION_L_64BIT,
-			DATA_DERIVATION_KDF_CTR, in_Data,
-			HOST_CHALLENGE_LEN + CARD_CHALLENGE_LEN);
-	/* Step 2: Calculate the host cryptogram. out_Data in this case is the calculated MAC value. */
-	calculate_CMAC(scp03SessCtxt->S_MAC_key, AES_KEY_LEN,
-			&in_Data[HOST_CHALLENGE_LEN + CARD_CHALLENGE_LEN], in_Data_len,
-			calculated_host_cryptogram);
-	/* Step 3: Compare the calculated host cryptogram with the received host cryptogram. */
-	if (memcmp(calculated_host_cryptogram,
-			&scp03SessCtxt->rx_APDU_message[scp03SessCtxt->rx_APDU_header_len],
-			HOST_CRYPTOGRAM_LEN) != 0) {
-		*isTrue_status = FALSE;
-	} else {
-		*isTrue_status = TRUE;
-	}
-}
-
-void scp03aux_apply_session_security_requirements_resp_APDU(
-		session_context_t *scp03SessCtxt, uint8_t *ptrAPDUResponse,
-		uint8_t *ptrAPDUResponseLen, uint8_t *responseData,
-		uint8_t responseDataLen, uint8_t SW1, uint8_t SW2) {
-	uint8_t padded_data_len; /* Padded data length. */
-	uint8_t response_data_enc[256]; /* Encrypted response data. */
-	uint8_t in_Data[256]; /* Auxiliary variable, used for calculating the RMAC of the response APDU. */
-	uint8_t r_MAC[16]; /* The RMAC of the response. */
-
-	if (scp03SessCtxt->curr_sec_level == C_DEC_R_ENC_C_MAC_R_MAC
-			&& responseDataLen > 0) { /* If true, response data should be encrypted. */
-		encrypt_resp_APDU(scp03SessCtxt, response_data_enc, &padded_data_len,
-				responseData, responseDataLen);
-
-		memcpy(ptrAPDUResponse, response_data_enc, padded_data_len);
-		*ptrAPDUResponseLen = padded_data_len; /* Update the response message length. */
-	} else {
-		memcpy(ptrAPDUResponse, responseData, responseDataLen);
-		*ptrAPDUResponseLen = responseDataLen;
-	}
-	if (scp03SessCtxt->curr_sec_level >= C_MAC_R_MAC) { /* If true, response should come with an RMAC tag appended. */
-		memcpy(in_Data, scp03SessCtxt->mac_chaining_value, MCV_LEN);
-		memcpy(&in_Data[MCV_LEN], ptrAPDUResponse, *ptrAPDUResponseLen);
-		in_Data[MCV_LEN + *ptrAPDUResponseLen] = SW1;
-		in_Data[MCV_LEN + *ptrAPDUResponseLen + 1] = SW2;
-
-		calculate_CMAC(scp03SessCtxt->S_RMAC_key, AES_KEY_LEN, in_Data,
-				MCV_LEN + *ptrAPDUResponseLen + 2, r_MAC); /* Calculate the response APDU RMAC. */
-
-		memcpy(&ptrAPDUResponse[*ptrAPDUResponseLen], r_MAC, MAC_LEN); /* Construct the packet to be sent, adding the RMAC tag. */
-
-		*ptrAPDUResponseLen += MAC_LEN; /* Update the length of the response message. */
-	}
-}
-
-void encrypt_resp_APDU(session_context_t *scp03SessCtxt,
-		uint8_t *ptrResponseDataEnc, uint8_t *ptrPaddedDataLen,
-		uint8_t *ptrResponseData, uint8_t responseDataLen) {
-	uint8_t iv[16] = { 0 }; /* IV used for encryption. */
-
-	/* BEGIN Pad prior to encryption. */
-	ptrResponseData[responseDataLen] = 0x80;
-	*ptrPaddedDataLen = ((uint8_t) (responseDataLen / AES_BLOCK_LEN)
-			+ ((responseDataLen % AES_BLOCK_LEN) > 0 ? 1 : 0)) * AES_BLOCK_LEN;
-	for (int i = responseDataLen + 1; i < *ptrPaddedDataLen; i++) {
-		ptrResponseData[i] = 0x00;
-	}
-	/* END Pad prior to encryption. */
-
-	/* BEGIN Encrypt the data to be sent to the master. */
-	get_response_ICV(scp03SessCtxt, iv); /* Calculate the ICV. */
-	mbedtls_aes_crypt_cbc(&aes_enc, MBEDTLS_AES_ENCRYPT, *ptrPaddedDataLen, iv,
-			ptrResponseData, ptrResponseDataEnc);
-	/* END Encrypt the data to be sent to the master. */
-}
-
-void scp03aux_decrypt_com_APDU(session_context_t *scp03SessCtxt,
-		uint8_t *ptrCommandDataDec, uint8_t *ptrCommandDataProperLen) {
-	uint8_t command_data_enc[256];
-	uint8_t iv[16] = { 0 }; /* ICV for data decryption. */
-
-	get_command_ICV(scp03SessCtxt, iv); /* Calculate the ICV. */
-	memcpy(command_data_enc, iv, AES_BLOCK_LEN);
-	memcpy(&command_data_enc[AES_BLOCK_LEN],
-			&scp03SessCtxt->rx_APDU_message[scp03SessCtxt->rx_APDU_header_len],
-			*ptrCommandDataProperLen);
-
-	mbedtls_aes_crypt_cbc(&aes_dec, MBEDTLS_AES_DECRYPT,
-			*ptrCommandDataProperLen, iv, &command_data_enc[AES_BLOCK_LEN],
-			ptrCommandDataDec);
-}
-
-void get_response_ICV(session_context_t *scp03SessCtxt, uint8_t *pIcv) {
-	uint8_t iv_Zero[SCP_IV_SIZE] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-	uint8_t padded_counter_block[SCP_IV_SIZE] = { 0x00, 0x00, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-	uint8_t temp_iv[SCP_IV_SIZE] = { 0 };
-
-	memcpy(padded_counter_block, scp03SessCtxt->command_counter, SCP_KEY_SIZE);
-	padded_counter_block[0] = 0x80; /* MSB padded with 0x80, as per the SCP03 spec. */
-
-	mbedtls_aes_crypt_cbc(&aes_enc, MBEDTLS_AES_ENCRYPT, SCP_KEY_SIZE, iv_Zero,
-			padded_counter_block, temp_iv);
-	memcpy(pIcv, temp_iv, SCP_IV_SIZE);
-}
-
-void get_command_ICV(session_context_t *scp03SessCtxt, uint8_t *pIcv) {
-	uint8_t iv_Zero[SCP_IV_SIZE] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-	uint8_t padded_counter_block[SCP_IV_SIZE] = { 0x00, 0x00, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-	uint8_t temp_iv[SCP_IV_SIZE] = { 0 };
-
-	memcpy(padded_counter_block, scp03SessCtxt->command_counter, SCP_KEY_SIZE);
-
-	mbedtls_aes_crypt_cbc(&aes_enc, MBEDTLS_AES_ENCRYPT, SCP_KEY_SIZE, iv_Zero,
-			padded_counter_block, temp_iv);
-	memcpy(pIcv, temp_iv, SCP_IV_SIZE);
-}
-
-void generate_session_key(uint8_t *key, size_t keyLen, uint8_t *inData,
-		size_t inDataLen, uint8_t *outSignature) {
-	calculate_CMAC(key, keyLen, inData, inDataLen, outSignature);
-}
-
-void calculate_CMAC(uint8_t *key, size_t keyLen, uint8_t *inData,
-		size_t inDataLen, uint8_t *outSignature) {
-	mbedtls_cipher_context_t c_ctx;
-	const mbedtls_cipher_info_t *cipher_info;
-
-	cipher_info = mbedtls_cipher_info_from_type(MBEDTLS_CIPHER_AES_128_ECB);
-
-	//CLI_printf("mbedtls_cipher_init BEGIN\n");
-	mbedtls_cipher_init(&c_ctx);
-	//CLI_printf("mbedtls_cipher_init END\n");
-
-	//CLI_printf("mbedtls_cipher_setup BEGIN\n");
-	mbedtls_cipher_setup(&c_ctx, cipher_info);
-	//Si bloccava qua
-	//CLI_printf("mbedtls_cipher_setup END\n");
-
-	//CLI_printf("mbedtls_cipher_cmac_starts BEGIN\n");
-	mbedtls_cipher_cmac_starts(&c_ctx, key, 128);
-	//CLI_printf("mbedtls_cipher_cmac_starts END\n");
-
-	mbedtls_cipher_cmac_update(&c_ctx, inData, inDataLen);
-
-	mbedtls_cipher_cmac_finish(&c_ctx, outSignature);
-	mbedtls_cipher_free(&c_ctx);
-}
-
-void set_derivation_data(uint8_t *ddA, uint16_t *pDdALen, uint8_t ddConstant,
-		uint16_t ddL, uint8_t iCounter, const uint8_t *context,
-		uint16_t contextLen) {
-	memset(ddA, 0, DD_LABEL_LEN - 1);
-	ddA[DD_LABEL_LEN - 1] = ddConstant;
-	ddA[DD_LABEL_LEN] = 0x00; /* Separation indicator. */
-	ddA[DD_LABEL_LEN + 1] = (uint8_t) (ddL >> 8);
-	ddA[DD_LABEL_LEN + 2] = (uint8_t) ddL;
-	ddA[DD_LABEL_LEN + 3] = iCounter;
-	memcpy(&ddA[DD_LABEL_LEN + 4], context, contextLen);
-	*pDdALen = DD_LABEL_LEN + 4 + contextLen;
-}
-
-void scp03aux_gen_card_cryptogram(session_context_t *scp03SessCtxt,
-		uint8_t *cardCryptogram) {
-	uint8_t ddA[DDA_BUFFER_LEN];
-	uint16_t ddALen = DDA_BUFFER_LEN;
-	uint8_t context[HOST_CHALLENGE_LEN + CARD_CHALLENGE_LEN];
-	uint16_t contextLen = 0;
-
-	memcpy(context, scp03SessCtxt->host_challenge, HOST_CHALLENGE_LEN);
-	memcpy(&context[HOST_CHALLENGE_LEN], scp03SessCtxt->card_challenge,
-			CARD_CHALLENGE_LEN);
-	contextLen = HOST_CHALLENGE_LEN + CARD_CHALLENGE_LEN;
-
-	set_derivation_data(ddA, &ddALen, DATA_CARD_CRYPTOGRAM,
-			DATA_DERIVATION_L_64BIT, DATA_DERIVATION_KDF_CTR, context,
-			contextLen);
-
-	calculate_CMAC(scp03SessCtxt->S_MAC_key, AES_KEY_LEN, ddA, ddALen,
-			cardCryptogram);
-}
-
-void scp03aux_gen_session_key(session_context_t *scp03SessCtxt,
-		uint8_t *staticKey, session_key_t sessionKey) {
-	uint8_t ddA[DDA_BUFFER_LEN];
-	uint16_t ddALen = DDA_BUFFER_LEN;
-	uint8_t context[HOST_CHALLENGE_LEN + CARD_CHALLENGE_LEN];
-	uint16_t contextLen = 0;
-
-	memcpy(context, scp03SessCtxt->host_challenge, HOST_CHALLENGE_LEN);
-	memcpy(&context[HOST_CHALLENGE_LEN], scp03SessCtxt->card_challenge,
-			CARD_CHALLENGE_LEN);
-	contextLen = HOST_CHALLENGE_LEN + CARD_CHALLENGE_LEN;
-
-	if (sessionKey == S_ENC) {
-		set_derivation_data(ddA, &ddALen, DATA_DERIVATION_SENC,
-				DATA_DERIVATION_L_128BIT, DATA_DERIVATION_KDF_CTR, context,
-				contextLen);
-		generate_session_key(staticKey, AES_KEY_LEN, ddA, ddALen,
-				scp03SessCtxt->S_ENC_key);
-
-		mbedtls_aes_setkey_enc(&aes_enc, scp03SessCtxt->S_ENC_key, 128);
-		mbedtls_aes_setkey_dec(&aes_dec, scp03SessCtxt->S_ENC_key, 128);
-
-	} else if (sessionKey == S_MAC) {
-		set_derivation_data(ddA, &ddALen, DATA_DERIVATION_SMAC,
-				DATA_DERIVATION_L_128BIT, DATA_DERIVATION_KDF_CTR, context,
-				contextLen);
-		generate_session_key(staticKey, AES_KEY_LEN, ddA, ddALen,
-				scp03SessCtxt->S_MAC_key);
-	} else {
-		set_derivation_data(ddA, &ddALen, DATA_DERIVATION_SRMAC,
-				DATA_DERIVATION_L_128BIT, DATA_DERIVATION_KDF_CTR, context,
-				contextLen);
-		generate_session_key(staticKey, AES_KEY_LEN, ddA, ddALen,
-				scp03SessCtxt->S_RMAC_key);
-	}
-}
-
-void scp03aux_inc_command_counter(session_context_t *scp03SessCtxt) {
-	int i = 15;
-
-	while (i > 0) {
-		if (scp03SessCtxt->command_counter[i] < 255) {
-			scp03SessCtxt->command_counter[i] += 1;
-			break;
+		Xoodyak_Initialize(&instance, static_key, STATIC_KEY_LEN, id_K, 16,
+				counter_K, 16);
+		Xoodyak_Absorb(&instance, nonceH, NONCE_LEN);
+		Xoodyak_Ratchet(&instance);
+		Xoodyak_Absorb(&instance, commandBuf, CAPDU_HEADER_LEN);
+		Xoodyak_Decrypt(&instance, commandBuf + CAPDU_HEADER_LEN,
+				decCommandBuf + CAPDU_HEADER_LEN,
+				(size_t) (payload_len - NONCE_LEN - AUTH_TAG_LEN));
+		Xoodyak_Squeeze(&instance, tag, AUTH_TAG_LEN);
+		if (memcmp(tag,
+				commandBuf + CAPDU_HEADER_LEN
+						+ payload_len- NONCE_LEN - AUTH_TAG_LEN, AUTH_TAG_LEN)
+				!= 0) {
+			memset(decCommandBuf + CAPDU_HEADER_LEN, 0,
+					(size_t) (payload_len - NONCE_LEN));
+			tag_verif_res = -1;
 		} else {
-			scp03SessCtxt->command_counter[i] = 0;
-			i--;
+			tag_verif_res = 0;
+			dec_payload_len = payload_len - AUTH_TAG_LEN - NONCE_LEN;
+		}
+		session_state = HANDSHAKE;
+	} else {
+		Xoodyak_Absorb(&instance, commandBuf, CAPDU_HEADER_LEN);
+		Xoodyak_Decrypt(&instance, commandBuf + CAPDU_HEADER_LEN,
+				decCommandBuf + CAPDU_HEADER_LEN,
+				(size_t) (payload_len - AUTH_TAG_LEN));
+		Xoodyak_Squeeze(&instance, tag, AUTH_TAG_LEN);
+		if (memcmp(tag,
+				commandBuf + CAPDU_HEADER_LEN + payload_len - AUTH_TAG_LEN,
+				AUTH_TAG_LEN) != 0) {
+			memset(decCommandBuf + CAPDU_HEADER_LEN, 0, (size_t) payload_len);
+			tag_verif_res = -1;
+		} else {
+			tag_verif_res = 0;
+			dec_payload_len = payload_len - AUTH_TAG_LEN;
 		}
 	}
-	return;
+
+	memcpy(decCommandBuf, commandBuf, CAPDU_HEADER_LEN);
+	decCommandBuf[iLC1CAPDU] = (uint8_t) (dec_payload_len >> 8);
+	decCommandBuf[iLC2CAPDU] = (uint8_t) (dec_payload_len);
+
+	if (tag_verif_res == 0) {
+		*isTrueVerifyMAC = 1;
+	} else {
+		*isTrueVerifyMAC = 0;
+	}
 }
+
+void scp03aux_response_enc(uint8_t *responseBuf) {
+	uint16_t payload_len = (((uint16_t) responseBuf[iLC1RAPDU]) << 8)
+			+ ((uint16_t) responseBuf[iLC2RAPDU]); /* Response payload length (excludes the SWs). */
+	uint16_t enc_payload_len; /* Response payload length after encryption and authentication. */
+	uint16_t temp;
+	uint8_t SW1, SW2; /* RAPDU status words. */
+	uint16_t iSW1 = RAPDU_HEADER_LEN + payload_len; /* Position within responseBuf of SW1. */
+	uint16_t iSW2 = RAPDU_HEADER_LEN + payload_len + 1; /* Position within responseBuf of SW2. */
+
+	SW1 = responseBuf[iSW1];
+	SW2 = responseBuf[iSW2];
+
+	if (session_state == HANDSHAKE) {
+		temp = payload_len + AUTH_TAG_LEN + NONCE_LEN;
+		responseBuf[iLC1RAPDU] = (uint8_t) (temp >> 8); /* Update LC field. */
+		responseBuf[iLC2RAPDU] = (uint8_t) (temp); /* Update LC field. */
+
+		Xoodyak_Absorb(&instance, responseBuf, RAPDU_HEADER_LEN); /* Absorb AD */
+		Xoodyak_Absorb(&instance, responseBuf + iSW1, 1); /* Absorb AD */
+		Xoodyak_Absorb(&instance, responseBuf + iSW2, 1); /* Absorb AD */
+		Xoodyak_Absorb(&instance, nonceSE, NONCE_LEN); /* Absorb AD */
+		Xoodyak_Encrypt(&instance, responseBuf + RAPDU_HEADER_LEN,
+				responseBuf + RAPDU_HEADER_LEN, payload_len); /* Encrypt RAPDU payload. */
+		Xoodyak_Squeeze(&instance, responseBuf + RAPDU_HEADER_LEN + payload_len,
+				AUTH_TAG_LEN);
+		enc_payload_len = payload_len + AUTH_TAG_LEN;
+
+		memcpy(responseBuf + RAPDU_HEADER_LEN + enc_payload_len, nonceSE,
+				NONCE_LEN); /* Append nonceSE to the RAPDU payload. */
+
+		iSW1 = RAPDU_HEADER_LEN + enc_payload_len + NONCE_LEN;
+		iSW2 = RAPDU_HEADER_LEN + enc_payload_len + NONCE_LEN + 1;
+		responseBuf[iSW1] = SW1; /* Re-append SW1. */
+		responseBuf[iSW2] = SW2; /* Re-append SW2. */
+
+		session_state = ACTIVE;
+	} else {
+		temp = payload_len + AUTH_TAG_LEN;
+		responseBuf[iLC1RAPDU] = (uint8_t) (temp >> 8); /* Update LC field. */
+		responseBuf[iLC2RAPDU] = (uint8_t) (temp); /* Update LC field. */
+
+		Xoodyak_Absorb(&instance, responseBuf, RAPDU_HEADER_LEN); /* Absorb AD */
+		Xoodyak_Absorb(&instance, responseBuf + iSW1, 1); /* Absorb AD */
+		Xoodyak_Absorb(&instance, responseBuf + iSW2, 1); /* Absorb AD */
+		Xoodyak_Encrypt(&instance, responseBuf + RAPDU_HEADER_LEN,
+				responseBuf + RAPDU_HEADER_LEN, payload_len); /* Encrypt RAPDU payload. */
+		Xoodyak_Squeeze(&instance, responseBuf + RAPDU_HEADER_LEN + payload_len,
+				AUTH_TAG_LEN);
+		enc_payload_len = payload_len + AUTH_TAG_LEN;
+
+		iSW1 = RAPDU_HEADER_LEN + enc_payload_len;
+		iSW2 = RAPDU_HEADER_LEN + enc_payload_len + 1;
+		responseBuf[iSW1] = SW1; /* Re-append SW1. */
+		responseBuf[iSW2] = SW2; /* Re-append SW2. */
+	}
+}
+
