@@ -105,28 +105,9 @@ extern void secpat_i2c_receive(void *pvParameters);
 int main(void) {
 	prvSetupHardware();
 
-	/* The mainCREATE_SIMPLE_BLINKY_DEMO_ONLY setting is described at the top
-	 of this file. */
-
-	//CLI_start_task( my_main_menu );
-
 	xTaskCreate(secpat_i2c_receive, "secpat_i2c_receive", 800, NULL, main_TASK_PRIORITY, NULL);
 
-	/*
-
-	 xTaskCreate(secpat_i2c_send, "secpat_i2c_send", configMINIMAL_STACK_SIZE,
-	 NULL,
-	 main_TASK_PRIORITY, NULL);
-	 */
-
-	/* Start the tasks and timer running. */
 	vTaskStartScheduler();
-	/* If all is well, the scheduler will now be running, and the following
-	 line will never be reached.  If the following line does execute, then
-	 there was insufficient FreeRTOS heap memory available for the Idle and/or
-	 timer tasks to be created.  See the memory management section on the
-	 FreeRTOS web site for more details on the FreeRTOS heap
-	 http://www.freertos.org/a00111.html. */
 
 	while (1)
 		;
