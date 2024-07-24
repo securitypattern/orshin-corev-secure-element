@@ -38,17 +38,17 @@ void scp03APDU_construct_resp_APDU_message(uint8_t *ptrAPDUCommand,
 	if (scp03_sess_ctxt.rx_APDU_command_type <= EXTERNAL_AUTHENTICATE) { /* Secure channel session not yet established. */
 		switch (scp03_sess_ctxt.rx_APDU_command_type) {
 		case SELECT:
-			CLI_printf("SELECT COMMAND\n");
+			//CLI_printf("SELECT COMMAND\n");
 			break;
 		case INITIALIZE_UPDATE:
-			CLI_printf("INIT UPDATE COMMAND\n");
+			//CLI_printf("INIT UPDATE COMMAND\n");
 			hal_toggle_gpio((uint8_t) CHANNEL_INIT_GPIO);
 			initialize_update_response(ptrAPDUResponse, ptrAPDUResponseLen);
 			hal_toggle_gpio((uint8_t) CHANNEL_INIT_GPIO);
 
 			break;
 		case EXTERNAL_AUTHENTICATE:
-			CLI_printf("EXT AUTH COMMAND\n");
+			//CLI_printf("EXT AUTH COMMAND\n");
 			hal_toggle_gpio((uint8_t) CHANNEL_INIT_GPIO);
 			external_authenticate_response(ptrAPDUResponse, ptrAPDUResponseLen);
 			hal_toggle_gpio((uint8_t) CHANNEL_INIT_GPIO);
@@ -357,12 +357,12 @@ void read_object_response(uint8_t *ptrResponseData, uint8_t *ptrResponseDataLen,
 void echo_response(uint8_t *ptrResponseData, uint8_t *ptrResponseDataLen,
 		uint8_t *ptrCommandDataDec) {
 	*ptrResponseDataLen = scp03_sess_ctxt.rx_APDU_data_len - MAC_LEN;
-	CLI_printf("Responding to echo with bytes: [",
-			(*ptrResponseDataLen));
-	for (uint32_t i = 0; i < 3; ++i) {
-		CLI_printf(" 0x%x ", ptrCommandDataDec[i]);
-	}
-	CLI_printf(" ... ]\n");
+//	CLI_printf("Responding to echo with bytes: [",
+//			(*ptrResponseDataLen));
+//	for (uint32_t i = 0; i < 3; ++i) {
+//		CLI_printf(" 0x%x ", ptrCommandDataDec[i]);
+//	}
+//	CLI_printf(" ... ]\n");
 	memcpy(ptrResponseData, ptrCommandDataDec, *ptrResponseDataLen);
 }
 
