@@ -8,6 +8,8 @@
 
 #include "../include/slave_scp03APDU_def.h"
 #include "../include/slave_T1_def.h"
+#include "../include/secpat_i2c.h"
+#include <string.h>
 
 session_context_t scp03_sess_ctxt; /* Session context data. */
 
@@ -15,8 +17,7 @@ void set_rec_APDU_message(uint8_t *ptrRecAPDU) {
 	scp03_sess_ctxt.rx_APDU_data_len = ptrRecAPDU[iLC1CAPDU];
 	scp03_sess_ctxt.rx_APDU_data_len <<= 8;
 	scp03_sess_ctxt.rx_APDU_data_len |= ptrRecAPDU[iLC2CAPDU];
-	memcpy(scp03_sess_ctxt.rx_APDU_message, ptrRecAPDU,
-	CAPDU_HEADER_LEN + scp03_sess_ctxt.rx_APDU_data_len);
+	memcpy(scp03_sess_ctxt.rx_APDU_message, ptrRecAPDU, CAPDU_HEADER_LEN + scp03_sess_ctxt.rx_APDU_data_len);
 }
 
 void scp03APDU_construct_resp_APDU_message(uint8_t *ptrAPDUCommand,
@@ -44,7 +45,7 @@ void prepare_response_APDU(uint8_t *ptrAPDUCommand, uint8_t *ptrAPDUResponse,
 	uint8_t SW1, SW2; /* SW bytes of the response. */
 	uint16_t responseLen = 0; /* Length of the entire RAPDU to be sent to the master. */
 	bool_t isTrue_verify_MAC; /* Is the calculated MAC the same as the received MAC? */
-	
+
 	hal_toggle_gpio((uint8_t) COMMAND_DECRYPT_AUTH_GPIO);
 	scp03aux_command_dec(&scp03_sess_ctxt, commandBuf, &isTrue_verify_MAC);
 	hal_toggle_gpio((uint8_t) COMMAND_DECRYPT_AUTH_GPIO);

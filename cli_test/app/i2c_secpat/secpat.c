@@ -1,6 +1,5 @@
 /* Standard includes. */
 #include <stdio.h>
-#include <string.h>
 #include <unistd.h>
 #include <stdint.h>
 
@@ -22,6 +21,21 @@
 extern void vToggleLED(void);
 
 #include "../include/slave_T1_def.h"
+#include "../include/secpat_i2c.h"
+
+void* memcpy(void *destination, const void *source, size_t num) {
+	for (size_t i = 0; i < num; ++i) {
+		((uint8_t*) destination)[i] = ((uint8_t*) source)[i];
+	}
+	return destination;
+}
+//
+void* memset(void *dest, int c, size_t count) {
+	for (size_t i = 0; i < count; ++i) {
+		((uint8_t*) dest)[i] = (uint8_t) c;
+	}
+	return dest;
+}
 
 /*-----------------------------------------------------------*/
 const TickType_t xDelay = 2000 / portTICK_PERIOD_MS;
@@ -58,10 +72,10 @@ void secpat_i2c_receive(void *pvParameters) {
 	CLI_printf("Queue cleaned, reading input...\n");
 
 	hal_set_gpio_mode(CHANNEL_INIT_GPIO, 1);	//Mode : 1 = Output, 0 = Input
-	hal_set_gpio_mode(COMMAND_DECRYPT_AUTH_GPIO, 1);	//Mode : 1 = Output, 0 = Input
-	hal_set_gpio_mode(RESP_ENCRYPT_MAC_GPIO, 1);	//Mode : 1 = Output, 0 = Input
+	hal_set_gpio_mode(COMMAND_DECRYPT_AUTH_GPIO, 1);//Mode : 1 = Output, 0 = Input
+	hal_set_gpio_mode(RESP_ENCRYPT_MAC_GPIO, 1);//Mode : 1 = Output, 0 = Input
 
-	for(int c = 0; c < 10; ++c){
+	for (int c = 0; c < 10; ++c) {
 		hal_set_gpio(CHANNEL_INIT_GPIO);
 		hal_set_gpio(COMMAND_DECRYPT_AUTH_GPIO);
 		hal_set_gpio(RESP_ENCRYPT_MAC_GPIO);
@@ -72,7 +86,6 @@ void secpat_i2c_receive(void *pvParameters) {
 		vTaskDelay(500 * portTICK_PERIOD_MS);
 
 	}
-
 
 	for (;;) {
 
@@ -124,7 +137,8 @@ void secpat_i2c_receive(void *pvParameters) {
 
 				} else {
 					rx_packet.APDU_message[bytes_read - T1_HEADER_LEN] = data;
-					//CLI_printf("Data %d: 0x%x\n", bytes_read - T1_HEADER_LEN, data);
+//					CLI_printf("Data %d: 0x%x\n", bytes_read - T1_HEADER_LEN,
+//							data);
 					++bytes_read;
 				}
 				break;
