@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2024-2025, Security Pattern srl. All rights reserved.
+ */
+
+
 /* Standard includes. */
 #include <stdio.h>
 #include <unistd.h>

@@ -1,8 +1,5 @@
 /*
- * secpat_i2c.h
- *
- *  Created on: Feb 14, 2024
- *      Author: secpat
+ * Copyright (c) 2024-2025, Security Pattern srl. All rights reserved.
  */
 
 #ifndef APP_INCLUDE_SECPAT_I2C_H_

@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2024-2025, Security Pattern srl. All rights reserved.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 

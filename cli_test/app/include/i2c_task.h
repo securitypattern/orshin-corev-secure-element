@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2024-2025, Security Pattern srl. All rights reserved.
+ */
+
 #ifndef __I2C_TASK_H__
 #define __I2C_TASK_H__
 

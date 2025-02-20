@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2024-2025, Security Pattern srl. All rights reserved.
+ */
+
+
 #include "../include/slave_T1_def.h"
 #include "../include/secpat_i2c.h"
 
