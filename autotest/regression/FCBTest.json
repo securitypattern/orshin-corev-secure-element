@@ -1,6 +1,0 @@
-{
-	"Fabric Control Block test" : [
-		{">console"		: "fcb pgm\r\n"}
-	]
-	
-}

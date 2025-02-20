@@ -1,8 +1,0 @@
-{
-	"cam" : [
-		{">console"		: "cam open\r\n"},
-		{">console"		: "cam get\r\n"},
-		{">console"		: "qspi setclock\r\n"}
-	]
-	
-}

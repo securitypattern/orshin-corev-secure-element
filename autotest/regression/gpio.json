@@ -1,9 +1,0 @@
-{
-	"gpio" : [
-		{">console"		: "gpio event\r\n"},
-                {">console"		: "gpio evnt\r\n"},
-		{">console"		: "gpio all\r\n"}
-
-	]
-	
-}

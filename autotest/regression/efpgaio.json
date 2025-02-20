@@ -1,6 +1,0 @@
-{
-	"efpgaio" : [
-		{">console"		: "efpgaio all\r\n"}
-	]
-	
-}
