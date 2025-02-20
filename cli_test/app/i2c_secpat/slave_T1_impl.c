@@ -1,5 +1,5 @@
 #include "../include/slave_T1_def.h"
-
+#include "../include/secpat_i2c.h"
 
 packet_t rx_packet;
 /* Packet received from the master. */
