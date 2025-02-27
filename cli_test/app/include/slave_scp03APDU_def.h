@@ -1,3 +1,11 @@
+/*
+
+Copyright (c) 2025, Security Pattern s.r.l. All rights reserved.
+SPDX-License-Identifier: MIT
+
+*/
+
+
 #ifndef INC_SLAVE_SCP03APDU_DEF_H_
 #define INC_SLAVE_SCP03APDU_DEF_H_
 

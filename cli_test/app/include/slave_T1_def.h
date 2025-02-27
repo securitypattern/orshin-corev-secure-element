@@ -1,3 +1,11 @@
+/*
+
+Copyright (c) 2025, Security Pattern s.r.l. All rights reserved.
+SPDX-License-Identifier: MIT
+
+*/
+
+
 #include <stdint.h>
 #include <string.h>
 

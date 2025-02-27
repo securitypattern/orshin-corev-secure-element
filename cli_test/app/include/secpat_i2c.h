@@ -1,6 +1,10 @@
 /*
- * Copyright (c) 2024-2025, Security Pattern srl. All rights reserved.
- */
+
+Copyright (c) 2025, Security Pattern s.r.l. All rights reserved.
+SPDX-License-Identifier: MIT
+
+*/
+
 
 #ifndef APP_INCLUDE_SECPAT_I2C_H_
 #define APP_INCLUDE_SECPAT_I2C_H_

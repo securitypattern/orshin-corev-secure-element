@@ -1,6 +1,10 @@
 /*
- * Copyright (c) 2024-2025, Security Pattern srl. All rights reserved.
- */
+
+Copyright (c) 2025, Security Pattern s.r.l. All rights reserved.
+SPDX-License-Identifier: MIT
+
+*/
+
 
 
 /* Standard includes. */
