@@ -69,7 +69,7 @@
 #define configMINIMAL_STACK_SIZE ((unsigned short)800)
 /* we want to put the heap into special section */
 #define configAPPLICATION_ALLOCATED_HEAP 1
-#define configTOTAL_HEAP_SIZE		 ((size_t)(64 * 1024))
+#define configTOTAL_HEAP_SIZE		 ((size_t)(300 * 1024))
 #define configMAX_TASK_NAME_LEN		 (16)
 #define configUSE_TRACE_FACILITY	 1 /* TODO: 0 */
 #define configUSE_16_BIT_TICKS		 0

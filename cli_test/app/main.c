@@ -105,7 +105,7 @@ extern void secpat_i2c_receive(void *pvParameters);
 int main(void) {
 	prvSetupHardware();
 
-	xTaskCreate(secpat_i2c_receive, "secpat_i2c_receive", 800, NULL, main_TASK_PRIORITY, NULL);
+	xTaskCreate(secpat_i2c_receive, "secpat_i2c_receive", 1024 * 4, NULL, main_TASK_PRIORITY, NULL);
 
 	vTaskStartScheduler();
 
